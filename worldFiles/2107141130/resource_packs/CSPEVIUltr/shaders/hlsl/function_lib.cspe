@@ -1,0 +1,81 @@
+#include "variable.cspe"
+
+#define ENDER(FC) (((FC.r>FC.g)&&(FC.b>FC.g)&&(FC.b>FC.r))&&(FC.r<0.05&&FC.b<0.05&&FC.g<0.05))
+#define NETHER(FC) ((FC.b==FC.g)&&(FC.b*1.5<FC.r))
+#define UNWATER(FC,RF) (RF>0.8 &&((FC.b>=FC.g*1.2&&FC.b>=FC.r*2.0) || (FC.r*1.8<FC.g)) )
+#define NOOVERWORLD(FC,RF) (ENDER(FC)||NETHER(FC)||UNWATER(FC,RF))
+
+float brightMap(float3 map){
+float bright = (map.r+map.g+map.b)/3.0;
+return bright;
+}
+
+float3 toneMap(float3 color, float bright){
+
+	 float A = 2.3f;
+	 float B = 0.24f;
+	 float C = 2.5f;
+	 color *= bright;
+	
+	return (color * (A * color)) / (color * (C * color) + B);
+}
+
+float highlight(float3 _v_pos){
+float3 cp =float3(_v_pos.x,_v_pos.y,_v_pos.z*(1.0+sunset_f*2.0));
+#ifdef NORMAL_MAP
+cp =float3(_v_pos.x,_v_pos.y,_v_pos.z*(1.0+sunset_f*5.0));
+#endif
+float3 np = normalize(cp);
+float sun = abs(1.0-length(np.yz));
+return sun*0.15; 
+}
+
+float hash(float2 p){
+
+    p = frac(p * 0.0823565642);
+    p += dot(p, p + 10.1936425542);
+	
+    return frac((p.x + p.y) * p.y);
+}
+
+float hash2(float2 p){
+	float3 p3  = frac(float3(p.xyx) * 0.50235);
+    p3 += dot(p3, p3.yzx + 19.1954);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+float noise( float2 p ){
+
+    float2 i = floor( p*1.0 );
+    float2 f = frac( p*1.0 );
+	float2 u = f*f*(2.0-1.0*f);
+
+    return lerp( lerp( hash( i + float2(0.0,0.0) ), hash( i + float2(1.0,0.0) ), u.x),lerp( hash( i + float2(0.0,1.0) ), hash( i + float2(1.0,1.0) ), u.x), u.y);
+}
+
+float starMap(float2 vSamplePos, float fThreshhold ){
+float StarVal = noise( vSamplePos );
+if ( StarVal >= fThreshhold ){
+StarVal = pow( (StarVal - fThreshhold)/(1.0 - fThreshhold), 6.0 );
+}
+else{
+StarVal = 0.0;
+}
+    return StarVal;
+}
+
+float starRender(float2 vSamplePos, float fThreshhold ){
+    float fractX = frac( vSamplePos.x );
+    float fractY = frac( vSamplePos.y );
+    float2 floorSample = floor( vSamplePos );    
+    float v1 = starMap( floorSample, fThreshhold );
+    float v2 = starMap( floorSample + float2( 0.0, 1.0 ), fThreshhold );
+    float v3 = starMap( floorSample + float2( 1.0, 0.0 ), fThreshhold );
+    float v4 = starMap( floorSample + float2( 1.0, 1.0 ), fThreshhold );
+
+    float StarVal =   v1 * ( 1.0 - fractX ) * ( 1.0 - fractY )
+        			+ v2 * ( 1.0 - fractX ) * fractY
+        			+ v3 * fractX * ( 1.0 - fractY )
+        			+ v4 * fractX * fractY;
+	return StarVal;
+}
